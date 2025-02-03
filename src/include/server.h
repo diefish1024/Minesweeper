@@ -4,17 +4,153 @@
 #include <cstdlib>
 #include <iostream>
 
-/*
- * You may need to define some global variables for the information of the game map here.
- * Although we don't encourage to use global variables in real cpp projects, you may have to use them because the use of
- * class is not taught yet. However, if you are member of A-class or have learnt the use of cpp class, member functions,
- * etc., you're free to modify this structure.
- */
-int rows;         // The count of rows of the game map. You MUST NOT modify its name.
-int columns;      // The count of columns of the game map. You MUST NOT modify its name.
-int total_mines;  // The count of mines of the game map. You MUST NOT modify its name. You should initialize this
-                  // variable in function InitMap. It will be used in the advanced task.
+const int dx[] = {0, 0, 1, -1, 1, -1, 1, -1};  // The relative x coordinates of the 8 adjacent blocks
+const int dy[] = {1, -1, 0, 0, 1, -1, -1, 1};  // The relative y coordinates of the 8 adjacent blocks
+
+int rows;
+int columns;
+int total_mines;
 int game_state;  // The state of the game, 0 for continuing, 1 for winning, -1 for losing. You MUST NOT modify its name.
+
+class MineSweeperGame {
+private:
+    bool map[35][35];  // 1 - mine, 0 - no mine
+    bool visited[35][35];  // 1 - visited, 0 - not visited
+    bool marked[35][35];  // 1 - marked, 0 - not marked
+    int mine_count[35][35];  // The number of mines around a block
+    int marked_count_pos[35][35];  // The number of blocks marked as mines
+    int marked_count;  // The number of blocks marked as mines
+    int visit_count;  // The number of blocks visited
+
+public:
+    MineSweeperGame() {}
+    MineSweeperGame(int r, int c) : visit_count(0), marked_count(0) {
+        rows = r;
+        columns = c;
+        game_state = 0;
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < columns; j++) {
+                map[i][j] = false;
+                visited[i][j] = false;
+                marked[i][j] = false;
+                mine_count[i][j] = 0;
+                marked_count_pos[i][j] = 0;
+            }
+        }
+    }
+
+    void InitMap() {
+        char ch;
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < columns; j++) {
+                std::cin >> ch;
+                if(ch == 'X') {
+                    map[i][j] = true;
+                    total_mines++;
+                    for(int k = 0; k < 8; k++) {
+                        int x = i + dx[k];
+                        int y = j + dy[k];
+                        if(x >= 0 && x < rows && y >= 0 && y < columns) {
+                            mine_count[x][y]++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void VisitBlock(int r, int c) {
+        if(r < 0 || r >= rows || c < 0 || c >= columns || visited[r][c]) {
+            return;
+        }
+        if(map[r][c]) {
+            game_state = -1;
+            return;
+        }
+        visited[r][c] = true;
+        visit_count++;
+        if(visit_count == rows * columns - total_mines) {
+            game_state = 1;
+        }
+        if(!mine_count[r][c]) {
+            for(int i = 0; i < 8; i++) {
+                int x = r + dx[i];
+                int y = c + dy[i];
+                if(x >= 0 && x < rows && y >= 0 && y < columns) {
+                    VisitBlock(x, y);
+                }
+            }
+        }
+    }
+
+    void MarkMine(int r, int c) {
+        if(r < 0 || r >= rows || c < 0 || c >= columns || visited[r][c]) {
+            return;
+        }
+        if(map[r][c]) {
+            marked[r][c] = true;
+            marked_count++;
+            for(int i = 0; i < 8; i++) {
+                int x = r + dx[i];
+                int y = c + dy[i];
+                if(x >= 0 && x < rows && y >= 0 && y < columns) {
+                    marked_count_pos[x][y]++;
+                }
+            }
+            if (marked_count == total_mines) {
+                game_state = 1;
+            }
+        } else {
+            game_state = -1;
+        }
+    }
+
+    void AutoExplore(int r, int c) {
+        if(r < 0 || r >= rows || c < 0 || c >= columns || !visited[r][c]) {
+            return;
+        }
+        int cnt = 0;
+        for(int i = 0; i < 8; i++) {
+            int x = r + dx[i];
+            int y = c + dy[i];
+            if(x >= 0 && x < rows && y >= 0 && y < columns && marked[x][y]) {
+                cnt++;
+            }
+        }
+        if(cnt == marked_count_pos[r][c]) {
+            for(int i = 0; i < 8; i++) {
+                int x = r + dx[i];
+                int y = c + dy[i];
+                if(x >= 0 && x < rows && y >= 0 && y < columns && !visited[x][y] && !marked[x][y]) {
+                    VisitBlock(x, y);
+                }
+            }
+        }
+    }
+
+    void printMap() {
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < columns; j++) {
+                if(visited[i][j] || marked[i][j]) {
+                    if(marked[i][j]) {
+                        std::cout << "@";
+                    } else {
+                        std::cout << mine_count[i][j];
+                    }
+                } else {
+                    std::cout << "?";
+                }
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    int getVisitCount() { return visit_count; }
+    int getMarkedCount() { return game_state == 1 ? total_mines : marked_count; }
+
+};
+
+MineSweeperGame game;
 
 /**
  * @brief The definition of function InitMap()
@@ -29,8 +165,9 @@ int game_state;  // The state of the game, 0 for continuing, 1 for winning, -1 f
  * would be initialized, with all the blocks unvisited.
  */
 void InitMap() {
-  std::cin >> rows >> columns;
-  // TODO (student): Implement me!
+    std::cin >> rows >> columns;
+    game = MineSweeperGame(rows, columns);
+    game.InitMap();
 }
 
 /**
@@ -64,7 +201,7 @@ void InitMap() {
  * @note For invalid operation, you should not do anything.
  */
 void VisitBlock(int r, int c) {
-  // TODO (student): Implement me!
+    game.VisitBlock(r, c);
 }
 
 /**
@@ -101,7 +238,7 @@ void VisitBlock(int r, int c) {
  * @note For invalid operation, you should not do anything.
  */
 void MarkMine(int r, int c) {
-  // TODO (student): Implement me!
+    game.MarkMine(r, c);
 }
 
 /**
@@ -121,7 +258,7 @@ void MarkMine(int r, int c) {
  * And the game ends (and player wins).
  */
 void AutoExplore(int r, int c) {
-  // TODO (student): Implement me!
+    game.AutoExplore(r, c);
 }
 
 /**
@@ -134,8 +271,9 @@ void AutoExplore(int r, int c) {
  * @note If the player wins, we consider that ALL mines are correctly marked.
  */
 void ExitGame() {
-  // TODO (student): Implement me!
-  exit(0);  // Exit the game immediately
+    std::cout << (game_state == 1 ? "YOU WIN!" : "GAME OVER!") << std::endl;
+    std::cout << game.getVisitCount() << " " << game.getMarkedCount() << std::endl;
+    exit(0);  // Exit the game immediately
 }
 
 /**
@@ -163,7 +301,7 @@ void ExitGame() {
  * @note Use std::cout to print the game map, especially when you want to try the advanced task!!!
  */
 void PrintMap() {
-  // TODO (student): Implement me!
+    game.printMap();
 }
 
 #endif
