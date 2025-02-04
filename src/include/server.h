@@ -18,7 +18,6 @@ private:
     bool visited[35][35];  // 1 - visited, 0 - not visited
     bool marked[35][35];  // 1 - marked, 0 - not marked
     int mine_count[35][35];  // The number of mines around a block
-    int marked_count_pos[35][35];  // The number of blocks marked as mines
     int marked_count;  // The number of blocks marked as mines
     int visit_count;  // The number of blocks visited
 
@@ -34,7 +33,6 @@ public:
                 visited[i][j] = false;
                 marked[i][j] = false;
                 mine_count[i][j] = 0;
-                marked_count_pos[i][j] = 0;
             }
         }
     }
@@ -60,23 +58,24 @@ public:
     }
 
     void VisitBlock(int r, int c) {
-        if(r < 0 || r >= rows || c < 0 || c >= columns || visited[r][c]) {
+        if(r < 0 || r >= rows || c < 0 || c >= columns || marked[r][c] || visited[r][c]) {
             return;
         }
+        visited[r][c] = true;
         if(map[r][c]) {
             game_state = -1;
             return;
         }
-        visited[r][c] = true;
         visit_count++;
         if(visit_count == rows * columns - total_mines) {
             game_state = 1;
+            return;
         }
         if(!mine_count[r][c]) {
             for(int i = 0; i < 8; i++) {
                 int x = r + dx[i];
                 int y = c + dy[i];
-                if(x >= 0 && x < rows && y >= 0 && y < columns) {
+                if(x >= 0 && x < rows && y >= 0 && y < columns && !visited[x][y]) {
                     VisitBlock(x, y);
                 }
             }
@@ -84,29 +83,19 @@ public:
     }
 
     void MarkMine(int r, int c) {
-        if(r < 0 || r >= rows || c < 0 || c >= columns || visited[r][c]) {
+        if(r < 0 || r >= rows || c < 0 || c >= columns || marked[r][c] || visited[r][c]) {
             return;
         }
+        marked[r][c] = true;
         if(map[r][c]) {
-            marked[r][c] = true;
             marked_count++;
-            for(int i = 0; i < 8; i++) {
-                int x = r + dx[i];
-                int y = c + dy[i];
-                if(x >= 0 && x < rows && y >= 0 && y < columns) {
-                    marked_count_pos[x][y]++;
-                }
-            }
-            if (marked_count == total_mines) {
-                game_state = 1;
-            }
         } else {
             game_state = -1;
         }
     }
 
     void AutoExplore(int r, int c) {
-        if(r < 0 || r >= rows || c < 0 || c >= columns || !visited[r][c]) {
+        if(r < 0 || r >= rows || c < 0 || c >= columns || !visited[r][c] || map[r][c]) {
             return;
         }
         int cnt = 0;
@@ -117,7 +106,7 @@ public:
                 cnt++;
             }
         }
-        if(cnt == marked_count_pos[r][c]) {
+        if(cnt == mine_count[r][c]) {
             for(int i = 0; i < 8; i++) {
                 int x = r + dx[i];
                 int y = c + dy[i];
@@ -128,11 +117,43 @@ public:
         }
     }
 
-    void printMap() {
+    void PrintMap() {
         for(int i = 0; i < rows; i++) {
             for(int j = 0; j < columns; j++) {
                 if(visited[i][j] || marked[i][j]) {
                     if(marked[i][j]) {
+                        std::cout << "@";
+                    } else {
+                        std::cout << mine_count[i][j];
+                    }
+                } else {
+                    std::cout << "?";
+                }
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    void PrintMap_win() {
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < columns; j++) {
+                if(map[i][j]) {
+                    std::cout << "@";
+                } else {
+                    std::cout << mine_count[i][j];
+                }
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    void PrintMap_lose() {
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < columns; j++) {
+                if(visited[i][j] || marked[i][j]) {
+                    if((map[i][j] && visited[i][j]) || (!map[i][j] && marked[i][j])) {
+                        std::cout << "X";
+                    } else if(map[i][j]) {
                         std::cout << "@";
                     } else {
                         std::cout << mine_count[i][j];
@@ -301,7 +322,13 @@ void ExitGame() {
  * @note Use std::cout to print the game map, especially when you want to try the advanced task!!!
  */
 void PrintMap() {
-    game.printMap();
+    if(game_state == 1) {
+        game.PrintMap_win();
+    } else if(game_state == -1) {
+        game.PrintMap_lose();
+    } else {
+        game.PrintMap();
+    }
 }
 
 #endif
